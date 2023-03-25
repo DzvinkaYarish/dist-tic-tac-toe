@@ -1,14 +1,20 @@
+import itertools
 from concurrent import futures
 
 import grpc
 
+import time
+
 from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_leader_id_pb2_grpc, \
-    gamemaster_pb2, gamemaster_pb2_grpc, player_pb2, player_pb2_grpc
+    gamemaster_pb2, gamemaster_pb2_grpc, player_pb2, player_pb2_grpc, \
+    time_sync_pb2, time_sync_pb2_grpc
 from election import IdSharingServicer, LeaderIdSharingServicer
 from gamemaster import GameMasterServicer
 from player import PlayerServicer
 
 from tic_tac_toe import *
+
+import time_sync
 
 
 class Node():
@@ -17,6 +23,7 @@ class Node():
         self.ring_ids = ring_ids
         self.leader_id = None
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
+        self.offset = 0
 
         self.cmds = {
             'Start-game': self.start_game,
@@ -36,6 +43,7 @@ class Node():
         share_leader_id_pb2_grpc.add_LeaderIdSharingServicer_to_server(LeaderIdSharingServicer(self), self.server)
         gamemaster_pb2_grpc.add_GameMasterServicer_to_server(GameMasterServicer(self), self.server)
         player_pb2_grpc.add_PlayerServicer_to_server(PlayerServicer(self), self.server)
+        time_sync_pb2_grpc.add_TimeSyncServicer_to_server(time_sync.TimeSyncServicer(self), self.server)
 
         self.server.add_insecure_port(f'localhost:2002{self.id}')
 
@@ -83,6 +91,47 @@ class Node():
         # ToDO: decide how leader knows that election has been completed and it needs to start acting as leader
 
     def sync_clocks(self):
+        if self.leader_id is None:
+            print('No leader has been elected yet.')
+            return
+        elif self.leader_id != self.id:
+            print('This node is the leader. No need to sync clocks.')
+            return
+        else:
+            clients = self._get_player_ids()
+            current_time = time.time()
+            cls_times = itertools.product(clients, [current_time])
+            print("Initialization of clock sync with time", current_time)
+
+            # send time to all nodes and get current diffs
+            def send_time(inpt):
+                client_id, curr_time = inpt
+                with grpc.insecure_channel(f'localhost:2002{client_id}') as channel:
+                    stub = time_sync_pb2_grpc.TimeSyncStub(channel)
+                    req = time_sync_pb2.TimeRequest(stime=curr_time)
+                    off_res = stub.GetOffset(req)
+                return client_id, off_res.offset
+            with futures.ThreadPoolExecutor(max_workers=len(clients)) as executor:
+                offsets = executor.map(send_time, cls_times)
+
+            # calculate actual offsets
+            client_offsets, master_offset = time_sync.master_time_sync(dict(offsets))
+
+            # send offsets to all nodes
+            def send_offset(inpt):
+                client_id, offset = inpt
+                with grpc.insecure_channel(f'localhost:2002{client_id}') as channel:
+                    stub = time_sync_pb2_grpc.TimeSyncStub(channel)
+                    req = time_sync_pb2.OffsetRequest(offset=offset)
+                    stub.SetOffset(req)
+                print(f"Sent offset {offset} to node {client_id}")
+
+            with futures.ThreadPoolExecutor(max_workers=len(clients)) as executor:
+                executor.map(send_offset, list(client_offsets.items()))
+
+            # set offset of leader node
+            self.offset = master_offset
+            print("Clock sync completed successfully. Offset of leader node is", self.offset, "seconds")
         pass
 
     def get_turn(self, player_id):
@@ -118,26 +167,33 @@ class Node():
 
 
 if __name__ == '__main__':
-    # ids = list(range(3,8))
-    # nodes = []
-    # for i, j in enumerate(ids):
-    #     nodes.append(Node(j, ids[i + 1:] + ids[:i + 1]))  # rotate the list of node ids to form a ring
-    # for n in nodes:
-    #     n.start_server()
-    #
-    # # for i, n in enumerate(nodes):
-    # #     print(f'For node {i} rings ids are {n.ring_ids}')
-    #
-    # print(nodes[0].start_election())
+
+    ids = list(range(3,8))
+    nodes = []
+    for i, j in enumerate(ids):
+        nodes.append(Node(j, ids[i + 1:] + ids[:i + 1]))  # rotate the list of node ids to form a ring
+    for n in nodes:
+        n.start_server()
+    print(nodes[0].id, nodes[0].ring_ids)
+
     # for i, n in enumerate(nodes):
-    #     print(f'For node {i} leader is {n.leader_id}')
+    #     print(f'For node {i} rings ids are {n.ring_ids}')
 
-    n = Node(100, [100])
+    print(nodes[0].start_election())
+    for i, n in enumerate(nodes):
+        print(f'For node {i} leader is {n.leader_id}')
+    lid = nodes[0].leader_id
+    print(lid)
+    nodes[-1].sync_clocks()
+    for node in nodes:
+        print(f"Offset for node {node.id}: {node.offset}")
 
-    while True:
-        try:
-            print('Waiting for input...')
-            inp = input()
-            n.handle_input(inp)
-        except KeyboardInterrupt:
-            exit()
+    # n = Node(100, [100])
+    #
+    # while True:
+    #     try:
+    #         print('Waiting for input...')
+    #         inp = input()
+    #         n.handle_input(inp)
+    #     except KeyboardInterrupt:
+    #         exit()

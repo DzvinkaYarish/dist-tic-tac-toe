@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+service TimeSync{
+  rpc GetOffset (TimeRequest) returns (TimeReply) {}
+  rpc SetOffset (OffsetRequest) returns (Empty) {}
+}
+
+message TimeRequest {
+  double stime = 1;
+}
+
+message TimeReply {
+  double offset = 1;
+}
+
+message OffsetRequest {
+  double offset = 1;
+}
+
+message Empty {}
