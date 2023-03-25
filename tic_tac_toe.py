@@ -1,14 +1,15 @@
 # We assume that X is the first *starting* player and O is the second player
 
+E = -1  # Empty
 O = 0
 X = 1
 
 
 def init_board():
     board = [
-        None, None, None,
-        None, None, None,
-        None, None, None
+        E, E, E,
+        E, E, E,
+        E, E, E
     ]
     return board
 
@@ -17,7 +18,7 @@ def set_symbol(board, index, symbol):
     assert is_board_valid(board)
     if index < 0 or index > len(board):
         raise IndexError(f'Index {index} out of range')
-    if board[index] is not None:
+    if board[index] != E:
         raise ValueError(f'Index {index} is already occupied by symbol {board[index]}')
     if which_turn(board) != symbol:
         raise ValueError(f'Invalid symbol {symbol} for turn {which_turn(board)}')
@@ -31,21 +32,21 @@ def get_symbol(board, index):
     return board[index]
 
 
-# Returns O, X or None
+# Returns O, X or E
 def get_winner(board):
     assert is_board_valid(board)
     # Check rows
     for i in range(3):
-        if board[3 * i + 0] == board[3 * i + 1] == board[3 * i + 2] and board[3 * i + 0] is not None:
+        if board[3 * i + 0] == board[3 * i + 1] == board[3 * i + 2] and board[3 * i + 0] != E:
             return board[3 * i + 0]
     # Check columns
     for i in range(3):
-        if board[3 * 0 + i] == board[3 * 1 + i] == board[3 * 2 + i] and board[3 * 0 + i] is not None:
+        if board[3 * 0 + i] == board[3 * 1 + i] == board[3 * 2 + i] and board[3 * 0 + i] != E:
             return board[3 * 0 + i]
     # Check diagonals
-    if board[0] == board[4] == board[8] and board[0] is not None:
+    if board[0] == board[4] == board[8] and board[0] != E:
         return board[0]
-    if board[2] == board[4] == board[6] and board[2] is not None:
+    if board[2] == board[4] == board[6] and board[2] != E:
         return board[2]
     # No winner
     return None
@@ -79,10 +80,20 @@ def get_symbol_char(symbol):
         return 'O'
     elif symbol == X:
         return 'X'
-    elif symbol is None:
+    elif symbol == E:
         return ' '
     else:
         raise ValueError(f'Invalid element: {symbol}')
+
+
+# Note that empty symbols are not allowed here
+def parse_symbol(char):
+    if char == 'O':
+        return O
+    elif char == 'X':
+        return X
+    else:
+        raise ValueError(f'Symbol parsing failed for symbol: {char}')
 
 
 # Note that this function also prints an empty line before and after the board
