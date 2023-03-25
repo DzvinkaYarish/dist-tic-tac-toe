@@ -53,7 +53,7 @@ class Node:
     def start_server(self):
         self.server.start()
         print(f'Started node with id {self.id}')
-        print(f'Listening on port 2002{self.id}')
+        print(f'Listening on port 2002{self.id}...')
 
     def stop_server(self):
         self.server.stop(0)
@@ -199,6 +199,15 @@ class Node:
             raise Exception(f'{node_id} does not appear to be the leader')
 
     @staticmethod
+    def print_help():
+        print('''
+Commands:
+    Start-game
+    List-board
+    Set-symbol <position> <symbol>
+        ''')
+
+    @staticmethod
     def _get_node_ip(node_id):
         return f'localhost:2002{node_id}'
 
@@ -206,6 +215,7 @@ class Node:
 if __name__ == '__main__':
     node_ids = [100, 200, 300]
     current_node_id = node_ids[int(sys.argv[1])]
+    node_ids.remove(current_node_id)
 
     # ids = list(range(3,8))
     # nodes = []
@@ -224,9 +234,11 @@ if __name__ == '__main__':
     n = Node(current_node_id, node_ids)
     n.start_server()
 
+    n.print_help()
+
     while True:
         try:
-            print('Waiting for input...')
+            print("> ", end="")
             inp = input()
             n.handle_input(inp)
         except KeyboardInterrupt:
