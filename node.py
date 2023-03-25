@@ -1,3 +1,4 @@
+import random
 import sys
 import itertools
 from concurrent import futures
@@ -16,6 +17,9 @@ from player import PlayerServicer
 from tic_tac_toe import *
 
 import time_sync
+
+
+DEBUGGING = False
 
 
 class Node:
@@ -56,18 +60,19 @@ class Node:
 
         self.server.add_insecure_port(f'localhost:2002{self.id}')
 
-    # TODO: remove hardcoded debugging values
     def reset(self):
-        self.leader_id = 300
+        if DEBUGGING:  # for debugging
+            self.leader_id = 300
 
-        self.player_x_id = 100
-        self.player_o_id = 200
-        self.board = init_board()
+            self.player_x_id = 100
+            self.player_o_id = 200
+            self.board = init_board()
+        else:
+            self.leader_id = None
 
-        if self.id == 100:
-            self.symbol = X
-        elif self.id == 200:
-            self.symbol = O
+            self.player_x_id = None
+            self.player_o_id = None
+            self.board = None
 
     def start_server(self):
         self.server.start()
@@ -119,8 +124,16 @@ class Node:
             print('Sync clock failed.')
             return
 
-        print(f'Election completed successfully. Node at {self.leader_id} is the leader. Starting the game...')
+    def setup_game_data_and_request_the_first_move(self):
+        self._is_leader_check(self.id)
+
+        player_ids = self._get_player_ids()
+        self.player_x_id = random.choice(player_ids)
+        self.player_o_id = player_ids[0] if self.player_x_id == player_ids[1] else player_ids[1]
+
         self.board = init_board()
+
+        self.get_turn(self.player_x_id)
 
     def sync_clocks(self):
         if self.leader_id is None:
@@ -222,6 +235,11 @@ class Node:
         print('Set symbol')
         self._is_leader_check(self.id)
         set_symbol(self.board, pos_symbol, symbol)
+        if self.is_game_over():
+            self.announce_winner()
+        else:
+            next_player = which_turn(self.board)
+            self.get_turn(self.player_x_id if next_player == X else self.player_o_id)
 
     def get_board(self):
         print('Get board')
@@ -285,6 +303,8 @@ if __name__ == '__main__':
         try:
             print("> ", end="")
             inp = input()
+            if not inp.strip():
+                continue
             n.handle_input(inp)
         except KeyboardInterrupt:
             exit()

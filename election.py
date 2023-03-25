@@ -89,6 +89,7 @@ class LeaderIdSharingServicer(share_leader_id_pb2_grpc.LeaderIdSharingServicer):
     def NotifyLeader(self, request, context):
         print('I am the leader node.')
         self.node.sync_clocks()
+        self.node.setup_game_data_and_request_the_first_move()
         return share_leader_id_pb2.NotifyLeaderResponse(success=True)
 
 
