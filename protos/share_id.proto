@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+service IdSharing {
+  rpc ShareId(ShareIdRequest) returns (ShareIdResponse) {}
+}
+
+message ShareIdRequest {
+  int32 sender_id = 1;
+  string all_ids = 2;
+}
+
+message ShareIdResponse {
+  bool success = 1;
+}

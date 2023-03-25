@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+service LeaderIdSharing {
+  rpc ShareLeaderId(ShareLeaderIdRequest) returns (ShareLeaderIdResponse) {}
+}
+
+message ShareLeaderIdRequest {
+  int32 sender_id = 1;
+  int32  leader_id = 2;
+  string all_ids = 3;
+}
+
+message ShareLeaderIdResponse {
+  bool success = 1;
+}
