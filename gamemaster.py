@@ -3,7 +3,7 @@ import grpc
 from protos import gamemaster_pb2, gamemaster_pb2_grpc
 
 
-class TicTacToeGameMasterServicer(gamemaster_pb2_grpc.GameMasterServicer):
+class GameMasterServicer(gamemaster_pb2_grpc.GameMasterServicer):
     def __init__(self, node):
         self.node = node
 

@@ -3,7 +3,7 @@ import grpc
 from protos import player_pb2_grpc
 
 
-class TicTacToePlayerServicer(player_pb2_grpc.PlayerServicer):
+class PlayerServicer(player_pb2_grpc.PlayerServicer):
     def __init__(self, node):
         self.node = node
 
