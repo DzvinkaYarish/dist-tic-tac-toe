@@ -35,15 +35,14 @@ python -m pip install -r requirements.txt
 ### Generate proto files
 
 ```bash
-cd ./protos
-python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. share_id.proto
-python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. share_leader_id.proto
-python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. player.proto
-python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. gamemaster.proto
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/share_id.proto
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/share_leader_id.proto
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/player.proto
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/gamemaster.proto
 ```
 
 Alternatively, you can also execute `./generate_protos.sh` or `./generate_protos.bat` 
-script in the protos directory.
+script in the root directory.
 
 ### Run the processes 
 
