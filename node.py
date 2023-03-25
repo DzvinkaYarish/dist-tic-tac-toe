@@ -2,6 +2,7 @@ import random
 import sys
 import itertools
 from concurrent import futures
+from threading import Timer
 
 import grpc
 
@@ -37,6 +38,11 @@ class Node:
         self.player_o_id = None
         self.board = None
         self.moves_timestamps = {}  # board index - when the move was made
+
+        # State for the timer
+        self.waiting_for_move = False
+        self.curr_move_timer = None
+        self.timeout = 30
 
         self.reset()
 
@@ -184,6 +190,11 @@ class Node:
         with grpc.insecure_channel(Node._get_node_ip(player_id)) as channel:
             stub = player_pb2_grpc.PlayerStub(channel)
             _ = stub.RequestTurn(player_pb2.RequestTurnRequest())
+        # add basic timer to manage timeouts
+        # state for this timer is changed in server code
+        # in SetSymbol method
+        self.curr_move_timer = Timer(self.timeout, self._finish_if_still_waiting)
+        self.curr_move_timer.start()
 
     def send_turn(self, pos):
         print('Send turn')
@@ -281,6 +292,11 @@ class Node:
         self._game_started_check()
         if node_id != self.leader_id:
             raise Exception(f'{node_id} does not appear to be the leader')
+
+    def _finish_if_still_waiting(self):
+        if self.waiting_for_move:
+            print('Waiting for move timed out. Ending game')
+            self.end_game()
 
     @staticmethod
     def print_help():
