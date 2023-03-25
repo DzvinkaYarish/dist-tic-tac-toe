@@ -82,23 +82,33 @@ class Node:
                 continue
         return res
 
+    def notify_leader(self):
+        with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
+            stub = share_leader_id_pb2_grpc.LeaderIdSharingStub(channel)
+            res = stub.NotifyLeader(share_leader_id_pb2.NotifyLeaderRequest())
+            return res
+
     def start_game(self):
         status = self.start_election()
         if not status:
             print('Election failed. No leader was elected.')
             return
 
+        # trigger leader to start clock sync
+        status = self.notify_leader()
+        if not status:
+            print('Sync clock failed.')
+            return
+
         print(f'Election completed successfully. Node at {self.leader_id} is the leader. Starting the game...')
         self.board = init_board()
-
-        # ToDO: decide how leader knows that election has been completed and it needs to start acting as leader
 
     def sync_clocks(self):
         if self.leader_id is None:
             print('No leader has been elected yet.')
             return
         elif self.leader_id != self.id:
-            print('This node is the leader. No need to sync clocks.')
+            print('This node is not the leader. No need to sync clocks.')
             return
 
         clients = self._get_player_ids()
@@ -114,6 +124,7 @@ class Node:
                 req = time_sync_pb2.TimeRequest(stime=curr_time)
                 off_res = stub.GetOffset(req)
             return client_id, off_res.offset
+
         with futures.ThreadPoolExecutor(max_workers=len(clients)) as executor:
             offsets = executor.map(send_time, cls_times)
 

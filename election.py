@@ -81,3 +81,10 @@ class LeaderIdSharingServicer(share_leader_id_pb2_grpc.LeaderIdSharingServicer):
                 except grpc.RpcError as e:
                     continue
         return share_leader_id_pb2.ShareLeaderIdResponse(success=True)
+
+    def NotifyLeader(self, request, context):
+        self.node.sync_clocks()
+        return share_leader_id_pb2.NotifyLeaderResponse(success=True)
+
+
+

@@ -2,6 +2,7 @@ syntax = "proto3";
 
 service LeaderIdSharing {
   rpc ShareLeaderId(ShareLeaderIdRequest) returns (ShareLeaderIdResponse) {}
+  rpc NotifyLeader(NotifyLeaderRequest) returns (NotifyLeaderResponse) {}
 }
 
 message ShareLeaderIdRequest {
@@ -11,5 +12,12 @@ message ShareLeaderIdRequest {
 }
 
 message ShareLeaderIdResponse {
+  bool success = 1;
+}
+
+message NotifyLeaderRequest {
+}
+
+message NotifyLeaderResponse {
   bool success = 1;
 }
