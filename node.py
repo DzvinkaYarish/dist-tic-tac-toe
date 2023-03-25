@@ -100,42 +100,41 @@ class Node:
         elif self.leader_id != self.id:
             print('This node is the leader. No need to sync clocks.')
             return
-        else:
-            clients = self._get_player_ids()
-            current_time = time.time()
-            cls_times = itertools.product(clients, [current_time])
-            print("Initialization of clock sync with time", current_time)
 
-            # send time to all nodes and get current diffs
-            def send_time(inpt):
-                client_id, curr_time = inpt
-                with grpc.insecure_channel(f'localhost:2002{client_id}') as channel:
-                    stub = time_sync_pb2_grpc.TimeSyncStub(channel)
-                    req = time_sync_pb2.TimeRequest(stime=curr_time)
-                    off_res = stub.GetOffset(req)
-                return client_id, off_res.offset
-            with futures.ThreadPoolExecutor(max_workers=len(clients)) as executor:
-                offsets = executor.map(send_time, cls_times)
+        clients = self._get_player_ids()
+        current_time = time.time()
+        cls_times = itertools.product(clients, [current_time])
+        print("Initialization of clock sync with time", current_time)
 
-            # calculate actual offsets
-            client_offsets, master_offset = time_sync.master_time_sync(dict(offsets))
+        # send time to all nodes and get current diffs
+        def send_time(inpt):
+            client_id, curr_time = inpt
+            with grpc.insecure_channel(f'localhost:2002{client_id}') as channel:
+                stub = time_sync_pb2_grpc.TimeSyncStub(channel)
+                req = time_sync_pb2.TimeRequest(stime=curr_time)
+                off_res = stub.GetOffset(req)
+            return client_id, off_res.offset
+        with futures.ThreadPoolExecutor(max_workers=len(clients)) as executor:
+            offsets = executor.map(send_time, cls_times)
 
-            # send offsets to all nodes
-            def send_offset(inpt):
-                client_id, offset = inpt
-                with grpc.insecure_channel(f'localhost:2002{client_id}') as channel:
-                    stub = time_sync_pb2_grpc.TimeSyncStub(channel)
-                    req = time_sync_pb2.OffsetRequest(offset=offset)
-                    stub.SetOffset(req)
-                print(f"Sent offset {offset} to node {client_id}")
+        # calculate actual offsets
+        client_offsets, master_offset = time_sync.master_time_sync(dict(offsets))
 
-            with futures.ThreadPoolExecutor(max_workers=len(clients)) as executor:
-                executor.map(send_offset, list(client_offsets.items()))
+        # send offsets to all nodes
+        def send_offset(inpt):
+            client_id, offset = inpt
+            with grpc.insecure_channel(f'localhost:2002{client_id}') as channel:
+                stub = time_sync_pb2_grpc.TimeSyncStub(channel)
+                req = time_sync_pb2.OffsetRequest(offset=offset)
+                stub.SetOffset(req)
+            print(f"Sent offset {offset} to node {client_id}")
 
-            # set offset of leader node
-            self.offset = master_offset
-            print("Clock sync completed successfully. Offset of leader node is", self.offset, "seconds")
-        pass
+        with futures.ThreadPoolExecutor(max_workers=len(clients)) as executor:
+            executor.map(send_offset, list(client_offsets.items()))
+
+        # set offset of leader node
+        self.offset = master_offset
+        print("Clock sync completed successfully. Offset of leader node is", self.offset, "seconds")
 
     def get_turn(self, player_id):
         print('Get turn')
