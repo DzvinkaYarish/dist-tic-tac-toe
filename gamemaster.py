@@ -9,7 +9,7 @@ class GameMasterServicer(gamemaster_pb2_grpc.GameMasterServicer):
 
     def SetSymbol(self, request, context):
         try:
-            self.node.set_symbol(request.position)
+            self.node.set_symbol(request.node_id, request.position)
             return gamemaster_pb2.SetSymbolResponse(success=True)
         except Exception as exc:
             return gamemaster_pb2.SetSymbolResponse(success=False, error=exc.args[0])

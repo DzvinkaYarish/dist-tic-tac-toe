@@ -6,7 +6,8 @@ service GameMaster {
 }
 
 message SetSymbolRequest {
-  int32 position = 1;
+  int32 node_id = 1;
+  int32 position = 2;
 }
 
 message SetSymbolResponse {

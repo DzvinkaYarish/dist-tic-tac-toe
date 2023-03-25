@@ -191,7 +191,7 @@ class Node:
         self._is_player_check(self.id)
         with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
             stub = gamemaster_pb2_grpc.GameMasterStub(channel)
-            res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(position=pos))
+            res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(node_id=self.id, position=pos))
             if res.success:
                 print('Symbol set successfully')
             else:
@@ -227,9 +227,20 @@ class Node:
     def set_time_out(self, node_type, minutes):
         print('Setting timeout')
 
-    def set_symbol(self, pos_symbol):
+    def set_symbol(self, player_id, pos_symbol):
         print('Set symbol')
         self._is_leader_check(self.id)
+
+        # Check whose turn it is and only allow them to make a move
+        # IMPORTANT NOTE: here we are just checking for node id, so it is
+        # more than possible to cheat the game by sending requests from a fake id.
+        # The correct solution would be to use tokens. However since this is not the
+        # focus of this work, we deliberately skip this step.
+        current_player = which_turn(self.board)
+        if (current_player == X and player_id != self.player_x_id) or \
+                (current_player == O and player_id != self.player_o_id):
+            raise Exception(f'It is not your turn. Please wait for another player to make a move')
+
         set_symbol(self.board, pos_symbol, which_turn(self.board))
         self.moves_timestamps[pos_symbol] = datetime.datetime.now()
         if self.is_game_over():
