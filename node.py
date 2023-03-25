@@ -22,9 +22,20 @@ class Node:
     def __init__(self, id, ring_ids):
         self.id = id
         self.ring_ids = ring_ids
-        self.leader_id = 300
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
+
+        # For clock synchronization
         self.offset = 0
+
+        # Common for all nodes
+        self.leader_id = None
+        # Leader/GameMaster (only defined for a leader)
+        self.player_x_id = None
+        self.player_o_id = None
+        self.board = None
+        # Player (only defined for a player)
+        self.symbol = None
+
+        self.reset()
 
         self.cmds = {
             'Start-game': self.start_game,
@@ -33,11 +44,6 @@ class Node:
             'Set-node-time': self.set_node_time,
             'Set-time-out': self.set_time_out
         }
-
-        # Only defined for the game master (leader node), for the players it is None
-        self.board = init_board()  # TODO this is for debugging, remove later
-        # Only defined for the players (non-leader nodes), for the player it is None
-        self.symbol = None
 
         # Add all necessary services to a single server
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
@@ -49,6 +55,19 @@ class Node:
         time_sync_pb2_grpc.add_TimeSyncServicer_to_server(time_sync.TimeSyncServicer(self), self.server)
 
         self.server.add_insecure_port(f'localhost:2002{self.id}')
+
+    # TODO: remove hardcoded debugging values
+    def reset(self):
+        self.leader_id = 300
+
+        self.player_x_id = 100
+        self.player_o_id = 200
+        self.board = init_board()
+
+        if self.id == 100:
+            self.symbol = X
+        elif self.id == 200:
+            self.symbol = O
 
     def start_server(self):
         self.server.start()
@@ -251,20 +270,6 @@ if __name__ == '__main__':
     node_ids = [100, 200, 300]
     current_node_id = node_ids[int(sys.argv[1])]
     node_ids.remove(current_node_id)
-
-    # ids = list(range(3,8))
-    # nodes = []
-    # for i, j in enumerate(ids):
-    #     nodes.append(Node(j, ids[i + 1:] + ids[:i + 1]))  # rotate the list of node ids to form a ring
-    # for n in nodes:
-    #     n.start_server()
-    #
-    # # for i, n in enumerate(nodes):
-    # #     print(f'For node {i} rings ids are {n.ring_ids}')
-    #
-    # print(nodes[0].start_election())
-    # for i, n in enumerate(nodes):
-    #     print(f'For node {i} leader is {n.leader_id}')
 
     n = Node(current_node_id, node_ids)
     n.start_server()
