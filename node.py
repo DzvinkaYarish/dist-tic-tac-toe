@@ -267,11 +267,13 @@ Commands:
 
 
 if __name__ == '__main__':
-    node_ids = [100, 200, 300]
-    current_node_id = node_ids[int(sys.argv[1])]
-    node_ids.remove(current_node_id)
+    node_ids = [10, 20, 30]
+    i = int(sys.argv[1])
+    current_node_id = node_ids[i]
 
-    n = Node(current_node_id, node_ids)
+    # node_ids.remove(current_node_id)
+
+    n = Node(current_node_id, node_ids[i + 1:] + node_ids[:i + 1])
     n.start_server()
 
     n.print_help()
