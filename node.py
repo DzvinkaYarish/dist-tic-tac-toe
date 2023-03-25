@@ -6,6 +6,7 @@ from concurrent import futures
 import grpc
 
 import time
+import datetime
 
 from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_leader_id_pb2_grpc, \
     gamemaster_pb2, gamemaster_pb2_grpc, player_pb2, player_pb2_grpc, \
@@ -26,18 +27,16 @@ class Node:
     def __init__(self, id, ring_ids):
         self.id = id
         self.ring_ids = ring_ids
+        self.leader_id = None
 
         # For clock synchronization
         self.offset = 0
 
-        # Common for all nodes
-        self.leader_id = None
         # Leader/GameMaster (only defined for a leader)
         self.player_x_id = None
         self.player_o_id = None
         self.board = None
-        # Player (only defined for a player)
-        self.symbol = None
+        self.moves_timestamps = {}  # board index - when the move was made
 
         self.reset()
 
@@ -186,14 +185,13 @@ class Node:
             stub = player_pb2_grpc.PlayerStub(channel)
             _ = stub.RequestTurn(player_pb2.RequestTurnRequest())
 
-    def send_turn(self, pos, symbol):
+    def send_turn(self, pos):
         print('Send turn')
         pos = int(pos) - 1  # convert to 0-based index
-        symbol = parse_symbol(symbol)
         self._is_player_check(self.id)
         with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
             stub = gamemaster_pb2_grpc.GameMasterStub(channel)
-            res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(position=pos, symbol=symbol))
+            res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(position=pos))
             if res.success:
                 print('Symbol set successfully')
             else:
@@ -205,10 +203,8 @@ class Node:
         with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
             stub = gamemaster_pb2_grpc.GameMasterStub(channel)
             res = stub.ListBoard(gamemaster_pb2.ListBoardRequest())
-            if res.success:
-                print_board(res.board)
-            else:
-                print(res.error)
+            print(res.move_timestamps)
+            print_board(res.board)
 
     def announce_winner(self):
         self._is_leader_check(self.id)
@@ -231,10 +227,11 @@ class Node:
     def set_time_out(self, node_type, minutes):
         print('Setting timeout')
 
-    def set_symbol(self, pos_symbol, symbol):
+    def set_symbol(self, pos_symbol):
         print('Set symbol')
         self._is_leader_check(self.id)
-        set_symbol(self.board, pos_symbol, symbol)
+        set_symbol(self.board, pos_symbol, which_turn(self.board))
+        self.moves_timestamps[pos_symbol] = datetime.datetime.now()
         if self.is_game_over():
             self.announce_winner()
         else:
@@ -245,6 +242,11 @@ class Node:
         print('Get board')
         self._is_leader_check(self.id)
         return self.board
+
+    def get_move_timestamps(self):
+        print('Get move timestamps')
+        self._is_leader_check(self.id)
+        return self.moves_timestamps
 
     def is_game_over(self):
         return get_winner(self.board) is not None
@@ -276,7 +278,7 @@ Commands:
 
     Start-game
     List-board
-    Set-symbol <position> <symbol>
+    Set-symbol <position>
         ''')
 
     @staticmethod

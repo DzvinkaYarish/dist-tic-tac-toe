@@ -7,7 +7,6 @@ service GameMaster {
 
 message SetSymbolRequest {
   int32 position = 1;
-  int32 symbol = 2;
 }
 
 message SetSymbolResponse {
@@ -18,7 +17,6 @@ message SetSymbolResponse {
 message ListBoardRequest {}
 
 message ListBoardResponse {
-  bool success = 1;
-  string error = 2;
-  repeated int32 board = 3;
+  repeated int32 board = 1;
+  string move_timestamps = 2;
 }
