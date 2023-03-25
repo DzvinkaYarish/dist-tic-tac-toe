@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-service TicTacToePlayer {
+service GameMaster {
   rpc SetSymbol(SetSymbolRequest) returns (SetSymbolResponse) {}
   rpc ListBoard(ListBoardRequest) returns (ListBoardResponse) {}
 }

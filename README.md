@@ -38,8 +38,8 @@ python -m pip install -r requirements.txt
 cd ./protos
 python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. share_id.proto
 python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. share_leader.proto
-python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. tic_tac_toe_player.proto
-python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. tic_tac_toe_gamemaster.proto
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. player.proto
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. gamemaster.proto
 ```
 
 Alternatively, you can also execute `./generate_protos.sh` or `./generate_protos.bat` 

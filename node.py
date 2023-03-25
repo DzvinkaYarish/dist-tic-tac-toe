@@ -2,8 +2,12 @@ from concurrent import futures
 
 import grpc
 
-from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_leader_id_pb2_grpc
+from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_leader_id_pb2_grpc, \
+    gamemaster_pb2, gamemaster_pb2_grpc, player_pb2, player_pb2_grpc
 from election import IdSharingServicer, LeaderIdSharingServicer
+from gamemaster import GameMasterServicer
+from player import PlayerServicer
+
 from tic_tac_toe import *
 
 
@@ -22,12 +26,16 @@ class Node():
             'Set-time-out': self.set_time_out
         }
 
-        # Only defined for the game master (leader), for players it is None
+        # Only defined for the game master (leader node), for the players it is None
         self.board = None
+        # Only defined for the players (non-leader nodes), for the player it is None
+        self.symbol = None
 
         # Add all necessary services to a single server
         share_id_pb2_grpc.add_IdSharingServicer_to_server(IdSharingServicer(self), self.server)
         share_leader_id_pb2_grpc.add_LeaderIdSharingServicer_to_server(LeaderIdSharingServicer(self), self.server)
+        gamemaster_pb2_grpc.add_GameMasterServicer_to_server(GameMasterServicer(self), self.server)
+        player_pb2_grpc.add_PlayerServicer_to_server(PlayerServicer(self), self.server)
 
         self.server.add_insecure_port(f'localhost:2002{self.id}')
 
@@ -94,6 +102,14 @@ class Node():
 
     def set_time_out(self, node_type, minutes):
         print('Setting timeout')
+
+    def set_symbol(self, pos_symbol):
+        print('Set symbol')
+        set_symbol(self.board, pos_symbol, O)  # TODO: change this to self.symbol
+
+    def get_board(self):
+        print('Get board')
+        return self.board
 
     def _get_player_ids(self):
         if self.leader_id is None:
