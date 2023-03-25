@@ -1,8 +1,10 @@
-import grpc
 from concurrent import futures
+
+import grpc
 
 from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_leader_id_pb2_grpc
 from election import IdSharingServicer, LeaderIdSharingServicer
+from tic_tac_toe import *
 
 
 class Node():
@@ -12,12 +14,16 @@ class Node():
         self.leader_id = None
         self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
 
-        self.cmds = {'Start-game': self.start_game,
-                     'Set-symbol': self.send_turn,
-                     'List-board': self.list_board,
-                     'Set-node-time': self.set_node_time,
-                     'Set-time-out': self.set_time_out
-                     }
+        self.cmds = {
+            'Start-game': self.start_game,
+            'Set-symbol': self.send_turn,
+            'List-board': self.list_board,
+            'Set-node-time': self.set_node_time,
+            'Set-time-out': self.set_time_out
+        }
+
+        # Only defined for the game master (leader), for players it is None
+        self.board = None
 
         # Add all necessary services to a single server
         share_id_pb2_grpc.add_IdSharingServicer_to_server(IdSharingServicer(self), self.server)
@@ -42,7 +48,6 @@ class Node():
         except TypeError:
             print('Invalid arguments to the command.')
 
-
     def start_election(self):
         print('Starting election')
         for next_node_id in self.ring_ids:
@@ -59,16 +64,24 @@ class Node():
 
     def start_game(self):
         status = self.start_election()
-        if status:
-            print(f'Election completed successfully. Node at {self.leader_id} is the leader.')
+        if not status:
+            print('Election failed. No leader was elected.')
+            return
+
+        print(f'Election completed successfully. Node at {self.leader_id} is the leader. Starting the game...')
+        self.board = init_board()
+
 
         # ToDO: decide how leader knows that election has been completed and it needs to start acting as leader
 
     def sync_clocks(self):
         pass
 
-    def get_turn(self):
+    def get_turn(self, player_id):
         print('Get turn')
+        if player_id not in self._get_player_ids():
+            raise Exception(f'{player_id} does not appear to be a valid player id')
+
 
     def send_turn(self, pos, symbol):
         print('Send move')
@@ -81,6 +94,11 @@ class Node():
 
     def set_time_out(self, node_type, minutes):
         print('Setting timeout')
+
+    def _get_player_ids(self):
+        if self.leader_id is None:
+            raise Exception('Leader id is not set. The game has not started yet')
+        return [i for i in self.ring_ids if i != self.leader_id]
 
 
 if __name__ == '__main__':
@@ -107,6 +125,3 @@ if __name__ == '__main__':
             n.handle_input(inp)
         except KeyboardInterrupt:
             exit()
-
-
-

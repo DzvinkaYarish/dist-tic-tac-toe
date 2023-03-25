@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from protos import share_id_pb2 as protos_dot_share__id__pb2
+import share_id_pb2 as share__id__pb2
 
 
 class IdSharingStub(object):
@@ -16,8 +16,8 @@ class IdSharingStub(object):
         """
         self.ShareId = channel.unary_unary(
                 '/IdSharing/ShareId',
-                request_serializer=protos_dot_share__id__pb2.ShareIdRequest.SerializeToString,
-                response_deserializer=protos_dot_share__id__pb2.ShareIdResponse.FromString,
+                request_serializer=share__id__pb2.ShareIdRequest.SerializeToString,
+                response_deserializer=share__id__pb2.ShareIdResponse.FromString,
                 )
 
 
@@ -35,8 +35,8 @@ def add_IdSharingServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ShareId': grpc.unary_unary_rpc_method_handler(
                     servicer.ShareId,
-                    request_deserializer=protos_dot_share__id__pb2.ShareIdRequest.FromString,
-                    response_serializer=protos_dot_share__id__pb2.ShareIdResponse.SerializeToString,
+                    request_deserializer=share__id__pb2.ShareIdRequest.FromString,
+                    response_serializer=share__id__pb2.ShareIdResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -60,7 +60,7 @@ class IdSharing(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/IdSharing/ShareId',
-            protos_dot_share__id__pb2.ShareIdRequest.SerializeToString,
-            protos_dot_share__id__pb2.ShareIdResponse.FromString,
+            share__id__pb2.ShareIdRequest.SerializeToString,
+            share__id__pb2.ShareIdResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

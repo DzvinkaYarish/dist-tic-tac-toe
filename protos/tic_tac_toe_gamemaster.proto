@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+service TicTacToePlayer {
+  rpc SetSymbol(SetSymbolRequest) returns (SetSymbolResponse) {}
+  rpc ListBoard(ListBoardRequest) returns (ListBoardResponse) {}
+}
+
+message SetSymbolRequest {
+  int32 position = 1;
+  int32 symbol = 2;
+}
+
+message SetSymbolResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message ListBoardRequest {}
+
+message ListBoardResponse {
+  bool success = 1;
+  string error = 2;
+  repeated int32 board = 3;
+}

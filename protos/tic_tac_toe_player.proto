@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+service TicTacToeGameMaster {
+  rpc RequestTurn(RequestTurnRequest) returns (RequestTurnResponse) {}
+  rpc EndGame(EndGameRequest) returns (EndGameResponse) {}
+}
+
+message RequestTurnRequest {}
+
+message RequestTurnResponse {}
+
+message EndGameRequest {}
+
+message EndGameResponse {}
+
