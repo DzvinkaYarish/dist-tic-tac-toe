@@ -145,7 +145,7 @@ class Node:
 
     def send_turn(self, pos, symbol):
         print('Send turn')
-        pos = int(pos)
+        pos = int(pos) - 1  # convert to 0-based index
         symbol = parse_symbol(symbol)
         self._is_player_check(self.id)
         with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
@@ -167,6 +167,21 @@ class Node:
             else:
                 print(res.error)
 
+    def announce_winner(self):
+        self._is_leader_check(self.id)
+        winner = get_winner(self.board)
+        if winner is None:
+            raise Exception('The game is not over yet')
+        winner = get_symbol_char(winner)
+
+        print(f'Announcing winner {winner}')
+        for player_id in [100]:  # self._get_player_ids():
+            with grpc.insecure_channel(Node._get_node_ip(player_id)) as channel:
+                stub = player_pb2_grpc.PlayerStub(channel)
+                stub.EndGame(player_pb2.EndGameRequest(message=f'Player {winner} won the game!'))
+
+        self.end_game()
+
     def set_node_time(self, id, time_str):
         print('Setting time')
 
@@ -175,14 +190,22 @@ class Node:
 
     def set_symbol(self, pos_symbol, symbol):
         print('Set symbol')
+        self._is_leader_check(self.id)
         set_symbol(self.board, pos_symbol, symbol)
 
     def get_board(self):
         print('Get board')
+        self._is_leader_check(self.id)
         return self.board
 
+    def is_game_over(self):
+        return get_winner(self.board) is not None
+
+    def end_game(self):
+        pass
+
     def _get_player_ids(self):
-        return [i for i in self.ring_ids if i != self.leader_id]
+        return [i for i in self.ring_ids + [self.id] if i != self.leader_id]
 
     def _game_started_check(self):
         if self.leader_id is None:
@@ -195,13 +218,14 @@ class Node:
 
     def _is_leader_check(self, node_id):
         self._game_started_check()
-        if node_id == self.leader_id:
+        if node_id != self.leader_id:
             raise Exception(f'{node_id} does not appear to be the leader')
 
     @staticmethod
     def print_help():
         print('''
 Commands:
+
     Start-game
     List-board
     Set-symbol <position> <symbol>
@@ -235,6 +259,9 @@ if __name__ == '__main__':
     n.start_server()
 
     n.print_help()
+
+    print("Positions:")
+    print_board_indexes()
 
     while True:
         try:

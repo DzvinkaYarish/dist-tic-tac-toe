@@ -1,6 +1,6 @@
 import grpc
 
-from protos import player_pb2_grpc
+from protos import player_pb2, player_pb2_grpc
 
 
 class PlayerServicer(player_pb2_grpc.PlayerServicer):
@@ -9,6 +9,8 @@ class PlayerServicer(player_pb2_grpc.PlayerServicer):
 
     def RequestTurn(self, request, context):
         print("Turn has been requested by the Game Master")
+        return player_pb2.RequestTurnResponse()
 
     def EndGame(self, request, context):
-        print("The game has ended")
+        print(request.message)
+        return player_pb2.EndGameResponse()

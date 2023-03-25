@@ -10,6 +10,8 @@ class GameMasterServicer(gamemaster_pb2_grpc.GameMasterServicer):
     def SetSymbol(self, request, context):
         try:
             self.node.set_symbol(request.position, request.symbol)
+            if self.node.is_game_over():
+                self.node.announce_winner()
             return gamemaster_pb2.SetSymbolResponse(success=True)
         except Exception as exc:
             return gamemaster_pb2.SetSymbolResponse(success=False, error=exc.args[0])

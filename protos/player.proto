@@ -9,6 +9,8 @@ message RequestTurnRequest {}
 
 message RequestTurnResponse {}
 
-message EndGameRequest {}
+message EndGameRequest {
+  string message = 1;
+}
 
 message EndGameResponse {}
