@@ -193,6 +193,7 @@ class Node:
         # add basic timer to manage timeouts
         # state for this timer is changed in server code
         # in SetSymbol method
+        self.waiting_for_move = True
         self.curr_move_timer = Timer(self.timeout, self._finish_if_still_waiting)
         self.curr_move_timer.start()
 
