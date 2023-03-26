@@ -12,8 +12,8 @@ class GameMasterServicer(gamemaster_pb2_grpc.GameMasterServicer):
             self.node.set_symbol(request.node_id, request.position)
             if self.node.waiting_for_move:
                 self.node.waiting_for_move = False
-                self.node.timer.cancel()
-                self.node.timer = None
+                self.node.curr_move_timer.cancel()
+                self.node.curr_move_timer = None
             return gamemaster_pb2.SetSymbolResponse(success=True)
         except Exception as exc:
             return gamemaster_pb2.SetSymbolResponse(success=False, error=exc.args[0])
