@@ -11,10 +11,11 @@ import datetime
 
 from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_leader_id_pb2_grpc, \
     gamemaster_pb2, gamemaster_pb2_grpc, player_pb2, player_pb2_grpc, \
-    time_sync_pb2, time_sync_pb2_grpc
+    time_sync_pb2, time_sync_pb2_grpc, set_timeout_pb2, set_timeout_pb2_grpc
 from election import IdSharingServicer, LeaderIdSharingServicer
 from gamemaster import GameMasterServicer
 from player import PlayerServicer
+from set_timeout import TimeOutServicer
 
 from tic_tac_toe import *
 
@@ -42,7 +43,8 @@ class Node:
         # State for the timer
         self.waiting_for_move = False
         self.curr_move_timer = None
-        self.timeout = 30
+        self.leader_timeout = 30
+        self.player_timeout = 30
 
         self.reset()
 
@@ -62,6 +64,7 @@ class Node:
         gamemaster_pb2_grpc.add_GameMasterServicer_to_server(GameMasterServicer(self), self.server)
         player_pb2_grpc.add_PlayerServicer_to_server(PlayerServicer(self), self.server)
         time_sync_pb2_grpc.add_TimeSyncServicer_to_server(time_sync.TimeSyncServicer(self), self.server)
+        set_timeout_pb2_grpc.add_TimeOutServicer_to_server(TimeOutServicer(self), self.server)
 
         self.server.add_insecure_port(f'localhost:2002{self.id}')
 
@@ -194,7 +197,7 @@ class Node:
         # state for this timer is changed in server code
         # in SetSymbol method
         self.waiting_for_move = True
-        self.curr_move_timer = Timer(self.timeout, self._finish_if_still_waiting)
+        self.curr_move_timer = Timer(self.player_timeout, self._finish_if_still_waiting)
         self.curr_move_timer.start()
 
     def send_turn(self, pos):
@@ -226,7 +229,7 @@ class Node:
         winner = get_symbol_char(winner)
 
         print(f'Announcing winner {winner}')
-        for player_id in [100]:  # self._get_player_ids():
+        for player_id in self._get_player_ids():
             with grpc.insecure_channel(Node._get_node_ip(player_id)) as channel:
                 stub = player_pb2_grpc.PlayerStub(channel)
                 stub.EndGame(player_pb2.EndGameRequest(message=f'Player {winner} won the game!'))
@@ -238,11 +241,22 @@ class Node:
 
     def set_time_out(self, node_type, minutes):
         print('Setting timeout')
+        if type == 'players':
+            self.player_timeout = minutes
+        else:
+            self.leader_timeout = minutes
+
+        for node_id in self.ring_ids[:-1]:
+            with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                stub = set_timeout_pb2_grpc.TimeOutStub(channel)
+                res = stub.SetTimeOut(set_timeout_pb2.SetTimeOutRequest(type=node_type, timeout=int(minutes)))
+
+        if res.success:
+            print(f'New time out for {node_type} = {minutes} minutes')
 
     def set_symbol(self, player_id, pos_symbol):
         print('Set symbol')
         self._is_leader_check(self.id)
-
         # Check whose turn it is and only allow them to make a move
         # IMPORTANT NOTE: here we are just checking for node id, so it is
         # more than possible to cheat the game by sending requests from a fake id.
@@ -315,7 +329,7 @@ Commands:
 
 
 if __name__ == '__main__':
-    node_ids = [10, 20, 30]
+    node_ids = [40, 50, 60]
     i = int(sys.argv[1])
     current_node_id = node_ids[i]
 

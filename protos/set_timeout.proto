@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+service TimeOut{
+  rpc SetTimeOut (SetTimeOutRequest) returns (SetTimeOutResponse) {}
+}
+
+message SetTimeOutRequest {
+  int32 timeout = 1;
+  string type = 2;
+}
+
+message SetTimeOutResponse {
+  bool success = 1;
+}

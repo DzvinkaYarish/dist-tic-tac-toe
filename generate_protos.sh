@@ -3,3 +3,4 @@ python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/sha
 python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/player.proto
 python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/gamemaster.proto
 python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/time_sync.proto
+python -m grpc_tools.protoc -I . --python_out=. --grpc_python_out=. ./protos/set_timeout.proto
