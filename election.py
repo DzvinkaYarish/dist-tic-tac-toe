@@ -59,6 +59,7 @@ class LeaderIdSharingServicer(share_leader_id_pb2_grpc.LeaderIdSharingServicer):
         print(f'Node {self.node.id}  received LEADER message from {request.sender_id}')
 
         if self.node.id in all_ids:
+            self.node.alive_ids = all_ids
             if request.leader_id in all_ids:
                 print(f'ELECTION SUCCESSFUL! NEW LEADER ID IS {request.leader_id}')
                 self.node.leader_id = request.leader_id

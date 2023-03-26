@@ -3,6 +3,7 @@ syntax = "proto3";
 service Player {
   rpc RequestTurn(RequestTurnRequest) returns (RequestTurnResponse) {}
   rpc EndGame(EndGameRequest) returns (EndGameResponse) {}
+  rpc ExitGame(ExitGameRequest) returns (ExitGameResponse) {}
 }
 
 message RequestTurnRequest {}
@@ -14,3 +15,9 @@ message EndGameRequest {
 }
 
 message EndGameResponse {}
+
+message ExitGameRequest {
+  string message = 1;
+}
+
+message ExitGameResponse {}

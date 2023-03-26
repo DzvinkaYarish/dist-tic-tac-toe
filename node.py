@@ -8,6 +8,7 @@ import grpc
 
 import time
 import datetime
+import os
 
 from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_leader_id_pb2_grpc, \
     gamemaster_pb2, gamemaster_pb2_grpc, player_pb2, player_pb2_grpc, \
@@ -29,6 +30,7 @@ class Node:
     def __init__(self, id, ring_ids):
         self.id = id
         self.ring_ids = ring_ids
+        self.alive_ids = ring_ids
         self.leader_id = None
 
         # For clock synchronization
@@ -43,8 +45,8 @@ class Node:
         # State for the timer
         self.waiting_for_move = False
         self.curr_move_timer = None
-        self.leader_timeout = 30
-        self.player_timeout = 30
+        self.leader_timeout = 60
+        self.player_timeout = 60
 
         self.reset()
 
@@ -120,16 +122,39 @@ class Node:
             res = stub.NotifyLeader(share_leader_id_pb2.NotifyLeaderRequest())
             return res
 
-    def start_game(self):
-        status = self.start_election()
-        if not status:
-            print('Election failed. No leader was elected.')
-            return
+    def exit_game(self, message):
+        for node_id in self.ring_ids[:-1]:
+            try:
+                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                    stub = player_pb2_grpc.PlayerStub(channel)
+                    stub.ExitGame(player_pb2.ExitGameRequest(message=message))
+            except grpc.RpcError:
+                continue
 
-        # trigger leader to start clock sync
+    def start_game(self):
+        n_retries = 1
+        retries = -1
+        while not retries == n_retries:
+            status = self.start_election()
+            if not status or len(self.alive_ids) < 3:
+                print('Game start failed. There aren\'t enough nodes online to start a game.')
+                retries += 1
+                print(f'Sleeping for 10s, then maybe retrying election. {n_retries - retries} retries left.')
+
+                time.sleep(10)
+            else:
+                break
+
+        if not status or len(self.alive_ids) < 3:
+            print('The game cannot be started. Exiting...')
+            self.exit_game('not enough nodes online.')
+            self.stop_server()
+            os._exit(0)
+
+        # trigger leader to sync clocks and start game
         status = self.notify_leader()
         if not status:
-            print('Sync clock failed.')
+            print('Triggering leader failed.')
             return
 
     def setup_game_data_and_request_the_first_move(self):
@@ -221,20 +246,14 @@ class Node:
             print(res.move_timestamps)
             print_board(res.board)
 
-    def announce_winner(self):
+    def get_winner(self):
         self._is_leader_check(self.id)
         winner = get_winner(self.board)
         if winner is None:
             raise Exception('The game is not over yet')
         winner = get_symbol_char(winner)
 
-        print(f'Announcing winner {winner}')
-        for player_id in self._get_player_ids():
-            with grpc.insecure_channel(Node._get_node_ip(player_id)) as channel:
-                stub = player_pb2_grpc.PlayerStub(channel)
-                stub.EndGame(player_pb2.EndGameRequest(message=f'Player {winner} won the game!'))
-
-        self.end_game()
+        return winner
 
     def set_node_time(self, id, time_str):
         print('Setting time')
@@ -242,14 +261,14 @@ class Node:
     def set_time_out(self, node_type, minutes):
         print('Setting timeout')
         if type == 'players':
-            self.player_timeout = minutes
+            self.player_timeout = minutes * 60
         else:
-            self.leader_timeout = minutes
+            self.leader_timeout = minutes * 60
 
         for node_id in self.ring_ids[:-1]:
             with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
                 stub = set_timeout_pb2_grpc.TimeOutStub(channel)
-                res = stub.SetTimeOut(set_timeout_pb2.SetTimeOutRequest(type=node_type, timeout=int(minutes)))
+                res = stub.SetTimeOut(set_timeout_pb2.SetTimeOutRequest(type=node_type, timeout=int(minutes * 60)))
 
         if res.success:
             print(f'New time out for {node_type} = {minutes} minutes')
@@ -270,7 +289,8 @@ class Node:
         set_symbol(self.board, pos_symbol, which_turn(self.board))
         self.moves_timestamps[pos_symbol] = datetime.datetime.now()
         if self.is_game_over():
-            self.announce_winner()
+            winner = self.get_winner()
+            self.end_game(message=f'Player {winner} won the game!')
         else:
             next_player = which_turn(self.board)
             self.get_turn(self.player_x_id if next_player == X else self.player_o_id)
@@ -288,8 +308,17 @@ class Node:
     def is_game_over(self):
         return get_winner(self.board) is not None
 
-    def end_game(self):
-        pass
+    def end_game(self, message):
+        print('Resetting the game...')
+        for node_id in self.ring_ids[:-1]:
+            try:
+                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                    stub = player_pb2_grpc.PlayerStub(channel)
+                    stub.EndGame(player_pb2.EndGameRequest(message=message))
+            except grpc.RpcError:
+                continue
+        self.reset()
+        self.start_game()
 
     def _get_player_ids(self):
         return [i for i in self.ring_ids + [self.id] if i != self.leader_id]
@@ -311,7 +340,7 @@ class Node:
     def _finish_if_still_waiting(self):
         if self.waiting_for_move:
             print('Waiting for move timed out. Ending game')
-            self.end_game()
+            self.end_game('Waiting for move timed out')
 
     @staticmethod
     def print_help():
@@ -329,7 +358,7 @@ Commands:
 
 
 if __name__ == '__main__':
-    node_ids = [40, 50, 60]
+    node_ids = [70, 80, 90]
     i = int(sys.argv[1])
     current_node_id = node_ids[i]
 
