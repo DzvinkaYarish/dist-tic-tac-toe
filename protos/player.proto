@@ -1,23 +1,19 @@
 syntax = "proto3";
 
 service Player {
-  rpc RequestTurn(RequestTurnRequest) returns (RequestTurnResponse) {}
-  rpc EndGame(EndGameRequest) returns (EndGameResponse) {}
-  rpc ExitGame(ExitGameRequest) returns (ExitGameResponse) {}
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse) {}
+  rpc EndGame(SendMessageRequest) returns (SendMessageResponse) {}
+  rpc ExitGame(SendMessageRequest) returns (SendMessageResponse) {}
+  rpc VerifyLeaderIsDown(VerifyLeaderIsDownRequest) returns (VerifyLeaderIsDownResponse) {}
 }
 
-message RequestTurnRequest {}
-
-message RequestTurnResponse {}
-
-message EndGameRequest {
+message SendMessageRequest {
   string message = 1;
 }
+message SendMessageResponse{}
 
-message EndGameResponse {}
+message VerifyLeaderIsDownRequest {}
 
-message ExitGameRequest {
-  string message = 1;
+message VerifyLeaderIsDownResponse {
+  double last_req_from_leader_timestamp = 1;
 }
-
-message ExitGameResponse {}

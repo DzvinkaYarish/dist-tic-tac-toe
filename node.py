@@ -45,8 +45,11 @@ class Node:
         # State for the timer
         self.waiting_for_move = False
         self.curr_move_timer = None
-        self.leader_timeout = 120
+        self.leader_timeout = 30
         self.player_timeout = 120
+
+        self.last_res_from_leader_timestamp = None
+        self.leader_timeout_timer = None
 
         self.reset()
 
@@ -83,6 +86,16 @@ class Node:
             self.player_x_id = None
             self.player_o_id = None
             self.board = None
+
+            self.waiting_for_move = False
+            self.moves_timestamps = {}
+
+            if self.leader_timeout_timer:
+                self.leader_timeout_timer.cancel()
+                self.leader_timeout_timer = None
+            if self.curr_move_timer:
+                self.curr_move_timer.cancel()
+                self.curr_move_timer = None
 
     def start_server(self):
         self.server.start()
@@ -127,7 +140,7 @@ class Node:
             try:
                 with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
                     stub = player_pb2_grpc.PlayerStub(channel)
-                    stub.ExitGame(player_pb2.ExitGameRequest(message=message))
+                    stub.ExitGame(player_pb2.SendMessageRequest(message=message))
             except grpc.RpcError:
                 continue
 
@@ -165,7 +178,7 @@ class Node:
         self.player_o_id = player_ids[0] if self.player_x_id == player_ids[1] else player_ids[1]
 
         self.board = init_board()
-
+        self.send_message_players('THE GAME HAS STARTED')
         self.get_turn(self.player_x_id)
 
     def sync_clocks(self):
@@ -217,7 +230,7 @@ class Node:
         self._is_player_check(player_id)
         with grpc.insecure_channel(Node._get_node_ip(player_id)) as channel:
             stub = player_pb2_grpc.PlayerStub(channel)
-            _ = stub.RequestTurn(player_pb2.RequestTurnRequest())
+            _ = stub.SendMessage(player_pb2.SendMessageRequest(message="Turn has been requested by the Game Master"))
         # add basic timer to manage timeouts
         # state for this timer is changed in server code
         # in SetSymbol method
@@ -225,26 +238,46 @@ class Node:
         self.curr_move_timer = Timer(self.player_timeout, self._finish_if_still_waiting)
         self.curr_move_timer.start()
 
+    def send_message_players(self, message):
+        for node_id in self.ring_ids[:-1]:
+            try:
+                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                    stub = player_pb2_grpc.PlayerStub(channel)
+                    _ = stub.SendMessage(player_pb2.SendMessageRequest(message=message))
+            except grpc.RpcError:
+                continue
+
     def send_turn(self, pos):
         print('Send turn',  end='\n> ')
         pos = int(pos) - 1  # convert to 0-based index
         self._is_player_check(self.id)
-        with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
-            stub = gamemaster_pb2_grpc.GameMasterStub(channel)
-            res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(node_id=self.id, position=pos))
-            if res.success:
-                print('Symbol set successfully', end='\n> ')
-            else:
-                print(res.error)
+        try:
+            with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
+                stub = gamemaster_pb2_grpc.GameMasterStub(channel)
+                res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(node_id=self.id, position=pos))
+                if res.success:
+                    self.last_res_from_leader_timestamp = time.time() + self.offset
+                    self.reset_leader_timeout_timer()
+                    print('Symbol set successfully', end='\n> ')
+                else:
+                    print(res.error)
+        except grpc.RpcError as e:
+            print("Leader isn't responding.")
 
     def list_board(self):
         print('List board')
         self._is_player_check(self.id)
-        with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
-            stub = gamemaster_pb2_grpc.GameMasterStub(channel)
-            res = stub.ListBoard(gamemaster_pb2.ListBoardRequest())
-            print(res.move_timestamps)
-            print_board(res.board)
+        try:
+            with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
+                stub = gamemaster_pb2_grpc.GameMasterStub(channel)
+                res = stub.ListBoard(gamemaster_pb2.ListBoardRequest())
+                print(res.move_timestamps)
+                print_board(res.board)
+                self.last_res_from_leader_timestamp = time.time() + self.offset
+                self.reset_leader_timeout_timer()
+        except grpc.RpcError as e:
+            print("Leader isn't responding.")
+
 
     def get_winner(self):
         self._is_leader_check(self.id)
@@ -342,11 +375,31 @@ class Node:
             try:
                 with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
                     stub = player_pb2_grpc.PlayerStub(channel)
-                    stub.EndGame(player_pb2.EndGameRequest(message=message))
+                    stub.EndGame(player_pb2.SendMessageRequest(message=message))
             except grpc.RpcError:
                 continue
         self.reset()
         self.start_game()
+
+    def reset_leader_timeout_timer(self):
+        if self.leader_timeout_timer:
+            self.leader_timeout_timer.cancel()
+        self.leader_timeout_timer = Timer(self.leader_timeout, self._agree_if_leader_is_down)
+        self.leader_timeout_timer.start()
+
+    def _agree_if_leader_is_down(self):
+        other_player_id = self.ring_ids[0] if self.ring_ids[0] != self.leader_id else self.ring_ids[1]
+        try:
+            with grpc.insecure_channel(Node._get_node_ip(other_player_id)) as channel:
+                stub = player_pb2_grpc.PlayerStub(channel)
+                res = stub.VerifyLeaderIsDown(player_pb2.VerifyLeaderIsDownRequest())
+                if (time.time() + self.offset - res.last_req_from_leader_timestamp) > (self.leader_timeout - 15):
+                    self.end_game(message='Both players agreed that the Game Master is down. Ending game...')
+                else:
+                    print("Players didn't agree that the leader is down. Game continues...")
+                    self.reset_leader_timeout_timer()
+        except grpc.RpcError:
+            print("Other player isn't responding")
 
     def _get_player_ids(self):
         return [i for i in self.ring_ids + [self.id] if i != self.leader_id]
