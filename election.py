@@ -3,8 +3,8 @@ import grpc
 from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_leader_id_pb2_grpc
 
 
-def get_node_ip(node_id):
-    return f'localhost:2002{node_id}'
+def get_node_ip(node, node_id):
+    return f'{node.ip2id[node_id]}:2002{node_id}'
 
 
 class IdSharingServicer(share_id_pb2_grpc.IdSharingServicer):
@@ -22,7 +22,7 @@ class IdSharingServicer(share_id_pb2_grpc.IdSharingServicer):
             # try sending LEADER message to next alive node
             for next_node_id in self.node.ring_ids:
                 try:
-                    with grpc.insecure_channel(get_node_ip(next_node_id)) as channel:
+                    with grpc.insecure_channel(get_node_ip(self.node, next_node_id)) as channel:
                         print(f'Forwarding LEADER message to node {next_node_id}')
 
                         stub = share_leader_id_pb2_grpc.LeaderIdSharingStub(channel)
@@ -36,7 +36,7 @@ class IdSharingServicer(share_id_pb2_grpc.IdSharingServicer):
         else:
             for next_node_id in self.node.ring_ids:
                 try:
-                    with grpc.insecure_channel(get_node_ip(next_node_id)) as channel:
+                    with grpc.insecure_channel(get_node_ip(self.node, next_node_id)) as channel:
                         print(f'Forwarding ELECTION message to node {next_node_id}')
 
                         stub = share_id_pb2_grpc.IdSharingStub(channel)
@@ -74,7 +74,7 @@ class LeaderIdSharingServicer(share_leader_id_pb2_grpc.LeaderIdSharingServicer):
 
             for next_node_id in self.node.ring_ids:
                 try:
-                    with grpc.insecure_channel(get_node_ip(next_node_id)) as channel:
+                    with grpc.insecure_channel(get_node_ip(self.node, next_node_id)) as channel:
                         print(f'Forwarding LEADER message to node {next_node_id}')
                         stub = share_leader_id_pb2_grpc.LeaderIdSharingStub(channel)
                         req = share_leader_id_pb2.ShareLeaderIdRequest(sender_id=self.node.id, leader_id=request.leader_id,

@@ -27,9 +27,12 @@ DEBUGGING = False
 
 
 class Node:
-    def __init__(self, id, ring_ids):
+    def __init__(self, id, ring_ids, ip=None, ring_ips=None):
         self.id = id
+        self.ip = ip
         self.ring_ids = ring_ids
+        self.ring_ips = ring_ips
+        self.id2ip = {k:v for k,v in zip(ring_ids, ring_ips)}
         self.alive_ids = ring_ids
         self.leader_id = None
 
@@ -71,7 +74,10 @@ class Node:
         time_sync_pb2_grpc.add_TimeSyncServicer_to_server(time_sync.TimeSyncServicer(self), self.server)
         set_timeout_pb2_grpc.add_TimeOutServicer_to_server(TimeOutServicer(self), self.server)
 
-        self.server.add_insecure_port(Node._get_node_ip(self.id))
+        self.server.add_insecure_port(self.get_node_ip(self.id))
+
+    def get_node_ip(self, id):
+        return f'{self.id2ip[id]}:2002{id}'
 
     def reset(self):
         if DEBUGGING:  # for debugging
@@ -119,7 +125,7 @@ class Node:
         print('Starting election')
         for next_node_id in self.ring_ids:
             try:
-                with grpc.insecure_channel(Node._get_node_ip(next_node_id)) as channel:
+                with grpc.insecure_channel(self.get_node_ip(next_node_id)) as channel:
                     print(f'Forwarding ELECTION message to node {next_node_id}')
                     stub = share_id_pb2_grpc.IdSharingStub(channel)
                     req = share_id_pb2.ShareIdRequest(sender_id=self.id, all_ids=','.join([str(self.id)]))
@@ -130,15 +136,15 @@ class Node:
         return res
 
     def notify_leader(self):
-        with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
+        with grpc.insecure_channel(self.get_node_ip(self.leader_ip, self.leader_id)) as channel:
             stub = share_leader_id_pb2_grpc.LeaderIdSharingStub(channel)
             res = stub.NotifyLeader(share_leader_id_pb2.NotifyLeaderRequest())
             return res
 
     def exit_game(self, message):
-        for node_id in self.ring_ids[:-1]:
+        for node_ip, node_id in zip(self.ring_ips[:-1], self.ring_ids[:-1]):
             try:
-                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                with grpc.insecure_channel(self.get_node_ip(node_ip, node_id)) as channel:
                     stub = player_pb2_grpc.PlayerStub(channel)
                     stub.ExitGame(player_pb2.SendMessageRequest(message=message))
             except grpc.RpcError:
@@ -197,7 +203,7 @@ class Node:
         # send time to all nodes and get current diffs
         def send_time(inpt):
             client_id, curr_time = inpt
-            with grpc.insecure_channel(Node._get_node_ip(client_id)) as channel:
+            with grpc.insecure_channel(self.get_node_ip(client_id)) as channel:
                 stub = time_sync_pb2_grpc.TimeSyncStub(channel)
                 req = time_sync_pb2.TimeRequest(stime=curr_time)
                 off_res = stub.GetOffset(req)
@@ -212,7 +218,7 @@ class Node:
         # send offsets to all nodes
         def send_offset(inpt):
             client_id, offset = inpt
-            with grpc.insecure_channel(Node._get_node_ip(client_id)) as channel:
+            with grpc.insecure_channel(self.get_node_ip(client_id)) as channel:
                 stub = time_sync_pb2_grpc.TimeSyncStub(channel)
                 req = time_sync_pb2.OffsetRequest(offset=offset)
                 stub.SetOffset(req)
@@ -228,7 +234,7 @@ class Node:
     def get_turn(self, player_id):
         print('Get turn')
         self._is_player_check(player_id)
-        with grpc.insecure_channel(Node._get_node_ip(player_id)) as channel:
+        with grpc.insecure_channel(self.get_node_ip(player_id)) as channel:
             stub = player_pb2_grpc.PlayerStub(channel)
             _ = stub.SendMessage(player_pb2.SendMessageRequest(message="Turn has been requested by the Game Master"))
         # add basic timer to manage timeouts
@@ -241,7 +247,7 @@ class Node:
     def send_message_players(self, message):
         for node_id in self.ring_ids[:-1]:
             try:
-                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                with grpc.insecure_channel(self.get_node_ip(node_id)) as channel:
                     stub = player_pb2_grpc.PlayerStub(channel)
                     _ = stub.SendMessage(player_pb2.SendMessageRequest(message=message))
             except grpc.RpcError:
@@ -252,7 +258,7 @@ class Node:
         pos = int(pos) - 1  # convert to 0-based index
         self._is_player_check(self.id)
         try:
-            with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
+            with grpc.insecure_channel(self.get_node_ip(self.leader_id)) as channel:
                 stub = gamemaster_pb2_grpc.GameMasterStub(channel)
                 res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(node_id=self.id, position=pos))
                 if res.success:
@@ -268,7 +274,7 @@ class Node:
         print('List board')
         self._is_player_check(self.id)
         try:
-            with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
+            with grpc.insecure_channel(self.get_node_ip(self.leader_id)) as channel:
                 stub = gamemaster_pb2_grpc.GameMasterStub(channel)
                 res = stub.ListBoard(gamemaster_pb2.ListBoardRequest())
                 print(res.move_timestamps)
@@ -310,7 +316,7 @@ class Node:
             print(f'New offset for {node_name} is {offset}.')
         else:
             try:
-                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                with grpc.insecure_channel(self.get_node_ip(node_id)) as channel:
                     stub = time_sync_pb2_grpc.TimeSyncStub(channel)
                     res = stub.AdjustOffset(time_sync_pb2.OffsetRequest(offset=new_total_seconds))
                     print(f'New offset for {node_name} is {res.offset}.')
@@ -325,7 +331,7 @@ class Node:
             self.leader_timeout = minutes * 60
 
         for node_id in self.ring_ids[:-1]:
-            with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+            with grpc.insecure_channel(self.get_node_ip(node_id)) as channel:
                 stub = set_timeout_pb2_grpc.TimeOutStub(channel)
                 res = stub.SetTimeOut(set_timeout_pb2.SetTimeOutRequest(type=node_type, timeout=int(minutes * 60)))
 
@@ -371,7 +377,7 @@ class Node:
         print('Resetting the game...')
         for node_id in self.ring_ids[:-1]:
             try:
-                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                with grpc.insecure_channel(self.get_node_ip(node_id)) as channel:
                     stub = player_pb2_grpc.PlayerStub(channel)
                     stub.EndGame(player_pb2.SendMessageRequest(message=message))
             except grpc.RpcError:
@@ -388,7 +394,7 @@ class Node:
     def _agree_if_leader_is_down(self):
         other_player_id = self.ring_ids[0] if self.ring_ids[0] != self.leader_id else self.ring_ids[1]
         try:
-            with grpc.insecure_channel(Node._get_node_ip(other_player_id)) as channel:
+            with grpc.insecure_channel(self.get_node_ip(other_player_id)) as channel:
                 stub = player_pb2_grpc.PlayerStub(channel)
                 res = stub.VerifyLeaderIsDown(player_pb2.VerifyLeaderIsDownRequest())
                 if (time.time() + self.offset - res.last_req_from_leader_timestamp) > (self.leader_timeout - 15):
@@ -440,10 +446,11 @@ Commands:
 
 if __name__ == '__main__':
     node_ids = [7, 8, 9]
+    node_ips = ['172.19.153.223', '172.19.153.85', '172.19.154.133']
     i = int(sys.argv[1])
     current_node_id = node_ids[i]
 
-    n = Node(current_node_id, node_ids[i + 1:] + node_ids[:i + 1])
+    n = Node(current_node_id, node_ids[i + 1:] + node_ids[:i + 1], node_ips[i], node_ips[i + 1:] + node_ips[:i + 1])
     n.start_server()
 
     print('WELCOME TO THE DISTRIBUTED TIC-TAC-TOE GAME!!!')
