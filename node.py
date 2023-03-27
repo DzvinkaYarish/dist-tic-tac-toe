@@ -256,6 +256,15 @@ class Node:
         return winner
 
     def set_node_time(self, id, time_str):
+        if self.id != self.leader_id:
+            raise Exception('Only the leader can set the time')
+        if id not in self.ring_ids:
+            raise Exception('Invalid node id')
+        if id == self.id:
+            raise Exception('Cannot set the time of the leader node')
+        with grpc.insecure_channel(Node._get_node_ip(id)) as channel:
+            stub = set_time_pb2_grpc.SetTimeStub(channel)
+            res = stub.SetTime(set_time_pb2.SetTimeRequest(time=time_str))
         print('Setting time')
 
     def set_time_out(self, node_type, minutes):
