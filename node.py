@@ -264,14 +264,13 @@ class Node:
                 if res.success:
                     self.last_res_from_leader_timestamp = time.time() + self.offset
                     self.reset_leader_timeout_timer()
-                    print('Symbol set successfully', end='\n> ')
+                    # print('Symbol set successfully', end='\n> ')
                 else:
                     print(res.error)
         except grpc.RpcError as e:
             print("Leader isn't responding.")
 
     def list_board(self):
-        print('List board')
         self._is_player_check(self.id)
         try:
             with grpc.insecure_channel(self.get_node_ip(self.leader_id)) as channel:
@@ -324,7 +323,6 @@ class Node:
                 print(f'Error setting {node_name} time.')
 
     def set_time_out(self, node_type, minutes):
-        print('Setting timeout')
         if type == 'players':
             self.player_timeout = minutes * 60
         else:
@@ -339,7 +337,6 @@ class Node:
             print(f'New time out for {node_type} = {minutes} minutes')
 
     def set_symbol(self, player_id, pos_symbol):
-        print('Set symbol')
         self._is_leader_check(self.id)
         # Check whose turn it is and only allow them to make a move
         # IMPORTANT NOTE: here we are just checking for node id, so it is
@@ -361,12 +358,10 @@ class Node:
             self.get_turn(self.player_x_id if next_player == X else self.player_o_id)
 
     def get_board(self):
-        print('Get board')
         self._is_leader_check(self.id)
         return self.board
 
     def get_move_timestamps(self):
-        print('Get move timestamps')
         self._is_leader_check(self.id)
         return self.moves_timestamps
 
