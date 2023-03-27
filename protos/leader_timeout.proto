@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service LeaderTimeoutService {
+  rpc Timeout(TimeoutRequest) returns (TimeoutResponse) {}
+}
+
+message TimeoutRequest {
+  string leaderId = 1;
+}
+
+message TimeoutResponse {
+  bool success = 1;
+}
