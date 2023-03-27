@@ -132,6 +132,7 @@ class Node:
                     res = stub.ShareId(req)
                     break
             except grpc.RpcError as e:
+                print('aaaa')
                 print(e)
                 continue
         return res
@@ -255,7 +256,7 @@ class Node:
                 continue
 
     def send_turn(self, pos):
-        print('Send turn',  end='\n> ')
+        # print('Send turn',  end='\n> ')
         pos = int(pos) - 1  # convert to 0-based index
         self._is_player_check(self.id)
         try:
@@ -441,7 +442,7 @@ Commands:
 
 
 if __name__ == '__main__':
-    node_ids = [7, 8, 9]
+    node_ids = [1, 2, 3]
     node_ips = ['172.19.153.223', '172.19.153.85', '172.19.154.133']
     i = int(sys.argv[1])
     current_node_id = node_ids[i]
