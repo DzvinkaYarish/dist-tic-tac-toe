@@ -4,7 +4,7 @@ from protos import share_id_pb2, share_id_pb2_grpc, share_leader_id_pb2, share_l
 
 
 def get_node_ip(node, node_id):
-    return f'{node.ip2id[node_id]}:2002{node_id}'
+    return f'{node.id2ip[node_id]}:2002{node_id}'
 
 
 class IdSharingServicer(share_id_pb2_grpc.IdSharingServicer):

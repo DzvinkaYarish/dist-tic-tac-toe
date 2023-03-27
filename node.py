@@ -132,6 +132,7 @@ class Node:
                     res = stub.ShareId(req)
                     break
             except grpc.RpcError as e:
+                print(e)
                 continue
         return res
 
