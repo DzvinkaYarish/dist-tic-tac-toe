@@ -3,6 +3,7 @@ syntax = "proto3";
 service TimeSync{
   rpc GetOffset (TimeRequest) returns (TimeReply) {}
   rpc SetOffset (OffsetRequest) returns (Empty) {}
+  rpc AdjustOffset(OffsetRequest) returns (TimeReply) {}
 }
 
 message TimeRequest {

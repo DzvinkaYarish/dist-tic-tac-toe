@@ -30,6 +30,11 @@ class TimeSyncServicer(time_sync_pb2_grpc.TimeSyncServicer):
         self.node.offset = request.offset
         return time_sync_pb2.Empty()
 
+    def AdjustOffset(self, request, context):
+        now = time.time() + self.node.offset
+        self.node.offset = request.offset - now
+        return time_sync_pb2.TimeReply(offset=self.node.offset)
+
 
 if __name__ == '__main__':
     clt_times = {1: 10, 2: 40, 3: 10}

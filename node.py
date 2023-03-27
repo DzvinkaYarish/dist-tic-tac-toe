@@ -45,8 +45,8 @@ class Node:
         # State for the timer
         self.waiting_for_move = False
         self.curr_move_timer = None
-        self.leader_timeout = 60
-        self.player_timeout = 60
+        self.leader_timeout = 120
+        self.player_timeout = 120
 
         self.reset()
 
@@ -255,8 +255,35 @@ class Node:
 
         return winner
 
-    def set_node_time(self, id, time_str):
+    def set_node_time(self, node_name, time_str):
         print('Setting time')
+        try:
+            node_id = int(node_name.split('-')[1])
+
+            date = datetime.date.today().strftime('%m/%d/%Y')
+            new_total_seconds = datetime.datetime.strptime(date + time_str, '%m/%d/%Y%H:%M:%S').timestamp()
+        except ValueError:
+            print('Incorrect format.')
+            return
+
+        if node_id not in self.ring_ids:
+            print('Invalid node id.')
+        elif node_id != self.id and self.id != self.leader_id:
+            print('Only leader node can set up time of a different node.')
+
+        elif self.id == node_id:
+            now = time.time() + self.offset
+            offset = new_total_seconds - now
+            self.offset = offset
+            print(f'New offset for {node_name} is {offset}.')
+        else:
+            try:
+                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                    stub = time_sync_pb2_grpc.TimeSyncStub(channel)
+                    res = stub.AdjustOffset(time_sync_pb2.OffsetRequest(offset=new_total_seconds))
+                    print(f'New offset for {node_name} is {res.offset}.')
+            except grpc.RpcError:
+                print(f'Error setting {node_name} time.')
 
     def set_time_out(self, node_type, minutes):
         print('Setting timeout')
