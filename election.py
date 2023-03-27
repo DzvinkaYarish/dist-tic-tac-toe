@@ -61,7 +61,7 @@ class LeaderIdSharingServicer(share_leader_id_pb2_grpc.LeaderIdSharingServicer):
         if self.node.id in all_ids:
             self.node.alive_ids = all_ids
             if request.leader_id in all_ids:
-                print(f'ELECTION SUCCESSFUL! NEW LEADER ID IS {request.leader_id}')
+                print(f'ELECTION SUCCESSFUL! NEW LEADER ID IS {request.leader_id}',  end='\n> ')
                 self.node.leader_id = request.leader_id
             # Start election all over again
             else:
@@ -88,7 +88,7 @@ class LeaderIdSharingServicer(share_leader_id_pb2_grpc.LeaderIdSharingServicer):
         return share_leader_id_pb2.ShareLeaderIdResponse(success=True)
 
     def NotifyLeader(self, request, context):
-        print('I am the leader node.')
+        print('I am the leader node.',  end='\n> ')
         self.node.sync_clocks()
         self.node.setup_game_data_and_request_the_first_move()
         return share_leader_id_pb2.NotifyLeaderResponse(success=True)

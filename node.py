@@ -59,7 +59,7 @@ class Node:
         }
 
         # Add all necessary services to a single server
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
 
         share_id_pb2_grpc.add_IdSharingServicer_to_server(IdSharingServicer(self), self.server)
         share_leader_id_pb2_grpc.add_LeaderIdSharingServicer_to_server(LeaderIdSharingServicer(self), self.server)
@@ -226,7 +226,7 @@ class Node:
         self.curr_move_timer.start()
 
     def send_turn(self, pos):
-        print('Send turn')
+        print('Send turn',  end='\n> ')
         pos = int(pos) - 1  # convert to 0-based index
         self._is_player_check(self.id)
         with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
@@ -314,7 +314,7 @@ class Node:
             raise Exception(f'It is not your turn. Please wait for another player to make a move')
 
         set_symbol(self.board, pos_symbol, which_turn(self.board))
-        self.moves_timestamps[pos_symbol] = datetime.datetime.now()
+        self.moves_timestamps[pos_symbol] = datetime.datetime.fromtimestamp(time.time() + self.offset)
         if self.is_game_over():
             winner = self.get_winner()
             self.end_game(message=f'Player {winner} won the game!')
@@ -385,7 +385,7 @@ Commands:
 
 
 if __name__ == '__main__':
-    node_ids = [70, 80, 90]
+    node_ids = [7, 8, 9]
     i = int(sys.argv[1])
     current_node_id = node_ids[i]
 
