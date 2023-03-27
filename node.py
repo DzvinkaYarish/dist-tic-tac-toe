@@ -233,7 +233,7 @@ class Node:
             stub = gamemaster_pb2_grpc.GameMasterStub(channel)
             res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(node_id=self.id, position=pos))
             if res.success:
-                print('Symbol set successfully')
+                print('Symbol set successfully', end='\n> ')
             else:
                 print(res.error)
 
@@ -272,6 +272,7 @@ class Node:
             print('Only leader node can set up time of a different node.')
 
         elif self.id == node_id:
+            # adjust the existing node time offset
             now = time.time() + self.offset
             offset = new_total_seconds - now
             self.offset = offset
@@ -352,21 +353,21 @@ class Node:
 
     def _game_started_check(self):
         if self.leader_id is None:
-            raise Exception('Leader id is not set. The game has not started yet')
+            raise Exception('Leader id is not set. The game has not started yet.')
 
     def _is_player_check(self, node_id):
         self._game_started_check()
         if node_id not in self._get_player_ids():
-            raise Exception(f'{node_id} does not appear to be a valid player id')
+            raise Exception(f'{node_id} does not appear to be a valid player id.')
 
     def _is_leader_check(self, node_id):
         self._game_started_check()
         if node_id != self.leader_id:
-            raise Exception(f'{node_id} does not appear to be the leader')
+            raise Exception(f'{node_id} does not appear to be the leader.')
 
     def _finish_if_still_waiting(self):
         if self.waiting_for_move:
-            print('Waiting for move timed out. Ending game')
+            print('Waiting for move timed out. Ending game...')
             self.end_game('Waiting for move timed out')
 
     @staticmethod
@@ -377,6 +378,8 @@ Commands:
     Start-game
     List-board
     Set-symbol <position>
+    Set-node time Node-<id> hh:mm:ss
+    Set-time-out <players,leader> <minutes>
         ''')
 
     @staticmethod
@@ -389,11 +392,10 @@ if __name__ == '__main__':
     i = int(sys.argv[1])
     current_node_id = node_ids[i]
 
-    # node_ids.remove(current_node_id)
-
     n = Node(current_node_id, node_ids[i + 1:] + node_ids[:i + 1])
     n.start_server()
 
+    print('WELCOME TO THE DISTRIBUTED TIC-TAC-TOE GAME!!!')
     n.print_help()
 
     print("Positions:")
