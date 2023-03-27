@@ -23,7 +23,7 @@ class IdSharingServicer(share_id_pb2_grpc.IdSharingServicer):
             for next_node_id in self.node.ring_ids:
                 try:
                     with grpc.insecure_channel(get_node_ip(self.node, next_node_id)) as channel:
-                        print(f'Forwarding LEADER message to node {next_node_id}')
+                        # print(f'Forwarding LEADER message to node {next_node_id}')
 
                         stub = share_leader_id_pb2_grpc.LeaderIdSharingStub(channel)
                         req = share_leader_id_pb2.ShareLeaderIdRequest(sender_id=self.node.id, leader_id=leader_id,
@@ -37,7 +37,7 @@ class IdSharingServicer(share_id_pb2_grpc.IdSharingServicer):
             for next_node_id in self.node.ring_ids:
                 try:
                     with grpc.insecure_channel(get_node_ip(self.node, next_node_id)) as channel:
-                        print(f'Forwarding ELECTION message to node {next_node_id}')
+                        # print(f'Forwarding ELECTION message to node {next_node_id}')
 
                         stub = share_id_pb2_grpc.IdSharingStub(channel)
                         req = share_id_pb2.ShareIdRequest(sender_id=self.node.id,
@@ -56,7 +56,7 @@ class LeaderIdSharingServicer(share_leader_id_pb2_grpc.LeaderIdSharingServicer):
 
     def ShareLeaderId(self, request, context):
         all_ids = list(map(int, request.all_ids.split(',')))
-        print(f'Node {self.node.id}  received LEADER message from {request.sender_id}')
+        # print(f'Node {self.node.id}  received LEADER message from {request.sender_id}')
 
         if self.node.id in all_ids:
             self.node.alive_ids = all_ids
@@ -69,13 +69,13 @@ class LeaderIdSharingServicer(share_leader_id_pb2_grpc.LeaderIdSharingServicer):
                 self.node.start_election()
 
         else:
-            print(f'Node {self.node.id} sets it leader as {request.leader_id}')
+            # print(f'Node {self.node.id} sets it leader as {request.leader_id}')
             self.node.leader_id = request.leader_id
 
             for next_node_id in self.node.ring_ids:
                 try:
                     with grpc.insecure_channel(get_node_ip(self.node, next_node_id)) as channel:
-                        print(f'Forwarding LEADER message to node {next_node_id}')
+                        # print(f'Forwarding LEADER message to node {next_node_id}')
                         stub = share_leader_id_pb2_grpc.LeaderIdSharingStub(channel)
                         req = share_leader_id_pb2.ShareLeaderIdRequest(sender_id=self.node.id, leader_id=request.leader_id,
                                                                        all_ids=','.join(list(map(str, all_ids + [self.node.id]))))
