@@ -71,7 +71,7 @@ class Node:
         time_sync_pb2_grpc.add_TimeSyncServicer_to_server(time_sync.TimeSyncServicer(self), self.server)
         set_timeout_pb2_grpc.add_TimeOutServicer_to_server(TimeOutServicer(self), self.server)
 
-        self.server.add_insecure_port(f'localhost:2002{self.id}')
+        self.server.add_insecure_port(Node._get_node_ip(self.id))
 
     def reset(self):
         if DEBUGGING:  # for debugging
@@ -197,7 +197,7 @@ class Node:
         # send time to all nodes and get current diffs
         def send_time(inpt):
             client_id, curr_time = inpt
-            with grpc.insecure_channel(f'localhost:2002{client_id}') as channel:
+            with grpc.insecure_channel(Node._get_node_ip(client_id)) as channel:
                 stub = time_sync_pb2_grpc.TimeSyncStub(channel)
                 req = time_sync_pb2.TimeRequest(stime=curr_time)
                 off_res = stub.GetOffset(req)
@@ -212,7 +212,7 @@ class Node:
         # send offsets to all nodes
         def send_offset(inpt):
             client_id, offset = inpt
-            with grpc.insecure_channel(f'localhost:2002{client_id}') as channel:
+            with grpc.insecure_channel(Node._get_node_ip(client_id)) as channel:
                 stub = time_sync_pb2_grpc.TimeSyncStub(channel)
                 req = time_sync_pb2.OffsetRequest(offset=offset)
                 stub.SetOffset(req)
