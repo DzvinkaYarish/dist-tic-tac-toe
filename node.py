@@ -45,8 +45,8 @@ class Node:
         # State for the timer
         self.waiting_for_move = False
         self.curr_move_timer = None
-        self.leader_timeout = 60
-        self.player_timeout = 60
+        self.leader_timeout = 120
+        self.player_timeout = 120
 
         self.reset()
 
@@ -59,7 +59,7 @@ class Node:
         }
 
         # Add all necessary services to a single server
-        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
 
         share_id_pb2_grpc.add_IdSharingServicer_to_server(IdSharingServicer(self), self.server)
         share_leader_id_pb2_grpc.add_LeaderIdSharingServicer_to_server(LeaderIdSharingServicer(self), self.server)
@@ -226,14 +226,14 @@ class Node:
         self.curr_move_timer.start()
 
     def send_turn(self, pos):
-        print('Send turn')
+        print('Send turn',  end='\n> ')
         pos = int(pos) - 1  # convert to 0-based index
         self._is_player_check(self.id)
         with grpc.insecure_channel(Node._get_node_ip(self.leader_id)) as channel:
             stub = gamemaster_pb2_grpc.GameMasterStub(channel)
             res = stub.SetSymbol(gamemaster_pb2.SetSymbolRequest(node_id=self.id, position=pos))
             if res.success:
-                print('Symbol set successfully')
+                print('Symbol set successfully', end='\n> ')
             else:
                 print(res.error)
 
@@ -255,17 +255,36 @@ class Node:
 
         return winner
 
-    def set_node_time(self, id, time_str):
-        if self.id != self.leader_id:
-            raise Exception('Only the leader can set the time')
-        if id not in self.ring_ids:
-            raise Exception('Invalid node id')
-        if id == self.id:
-            raise Exception('Cannot set the time of the leader node')
-        with grpc.insecure_channel(Node._get_node_ip(id)) as channel:
-            stub = set_time_pb2_grpc.SetTimeStub(channel)
-            res = stub.SetTime(set_time_pb2.SetTimeRequest(time=time_str))
+    def set_node_time(self, node_name, time_str):
         print('Setting time')
+        try:
+            node_id = int(node_name.split('-')[1])
+
+            date = datetime.date.today().strftime('%m/%d/%Y')
+            new_total_seconds = datetime.datetime.strptime(date + time_str, '%m/%d/%Y%H:%M:%S').timestamp()
+        except ValueError:
+            print('Incorrect format.')
+            return
+
+        if node_id not in self.ring_ids:
+            print('Invalid node id.')
+        elif node_id != self.id and self.id != self.leader_id:
+            print('Only leader node can set up time of a different node.')
+
+        elif self.id == node_id:
+            # adjust the existing node time offset
+            now = time.time() + self.offset
+            offset = new_total_seconds - now
+            self.offset = offset
+            print(f'New offset for {node_name} is {offset}.')
+        else:
+            try:
+                with grpc.insecure_channel(Node._get_node_ip(node_id)) as channel:
+                    stub = time_sync_pb2_grpc.TimeSyncStub(channel)
+                    res = stub.AdjustOffset(time_sync_pb2.OffsetRequest(offset=new_total_seconds))
+                    print(f'New offset for {node_name} is {res.offset}.')
+            except grpc.RpcError:
+                print(f'Error setting {node_name} time.')
 
     def set_time_out(self, node_type, minutes):
         print('Setting timeout')
@@ -296,7 +315,7 @@ class Node:
             raise Exception(f'It is not your turn. Please wait for another player to make a move')
 
         set_symbol(self.board, pos_symbol, which_turn(self.board))
-        self.moves_timestamps[pos_symbol] = datetime.datetime.now()
+        self.moves_timestamps[pos_symbol] = datetime.datetime.fromtimestamp(time.time() + self.offset)
         if self.is_game_over():
             winner = self.get_winner()
             self.end_game(message=f'Player {winner} won the game!')
@@ -334,21 +353,21 @@ class Node:
 
     def _game_started_check(self):
         if self.leader_id is None:
-            raise Exception('Leader id is not set. The game has not started yet')
+            raise Exception('Leader id is not set. The game has not started yet.')
 
     def _is_player_check(self, node_id):
         self._game_started_check()
         if node_id not in self._get_player_ids():
-            raise Exception(f'{node_id} does not appear to be a valid player id')
+            raise Exception(f'{node_id} does not appear to be a valid player id.')
 
     def _is_leader_check(self, node_id):
         self._game_started_check()
         if node_id != self.leader_id:
-            raise Exception(f'{node_id} does not appear to be the leader')
+            raise Exception(f'{node_id} does not appear to be the leader.')
 
     def _finish_if_still_waiting(self):
         if self.waiting_for_move:
-            print('Waiting for move timed out. Ending game')
+            print('Waiting for move timed out. Ending game...')
             self.end_game('Waiting for move timed out')
 
     @staticmethod
@@ -359,6 +378,8 @@ Commands:
     Start-game
     List-board
     Set-symbol <position>
+    Set-node time Node-<id> hh:mm:ss
+    Set-time-out <players,leader> <minutes>
         ''')
 
     @staticmethod
@@ -367,15 +388,14 @@ Commands:
 
 
 if __name__ == '__main__':
-    node_ids = [70, 80, 90]
+    node_ids = [7, 8, 9]
     i = int(sys.argv[1])
     current_node_id = node_ids[i]
-
-    # node_ids.remove(current_node_id)
 
     n = Node(current_node_id, node_ids[i + 1:] + node_ids[:i + 1])
     n.start_server()
 
+    print('WELCOME TO THE DISTRIBUTED TIC-TAC-TOE GAME!!!')
     n.print_help()
 
     print("Positions:")

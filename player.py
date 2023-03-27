@@ -9,13 +9,13 @@ class PlayerServicer(player_pb2_grpc.PlayerServicer):
         self.node = node
 
     def RequestTurn(self, request, context):
-        print("Turn has been requested by the Game Master")
+        print("Turn has been requested by the Game Master", end='\n> ')
         return player_pb2.RequestTurnResponse()
 
     def EndGame(self, request, context):
         self.node.reset()
         print(request.message)
-        print('Resetting the game...')
+        print('Resetting the game...',  end='\n> ')
         return player_pb2.EndGameResponse()
 
     def ExitGame(self, request, context):
