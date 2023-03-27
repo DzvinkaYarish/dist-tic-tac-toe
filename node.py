@@ -278,7 +278,6 @@ class Node:
         except grpc.RpcError as e:
             print("Leader isn't responding.")
 
-
     def get_winner(self):
         self._is_leader_check(self.id)
         winner = get_winner(self.board)
@@ -292,7 +291,6 @@ class Node:
         print('Setting time')
         try:
             node_id = int(node_name.split('-')[1])
-
             date = datetime.date.today().strftime('%m/%d/%Y')
             new_total_seconds = datetime.datetime.strptime(date + time_str, '%m/%d/%Y%H:%M:%S').timestamp()
         except ValueError:
