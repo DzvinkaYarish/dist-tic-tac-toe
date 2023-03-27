@@ -137,7 +137,7 @@ class Node:
         return res
 
     def notify_leader(self):
-        with grpc.insecure_channel(self.get_node_ip(self.leader_ip, self.leader_id)) as channel:
+        with grpc.insecure_channel(self.get_node_ip(self.leader_id)) as channel:
             stub = share_leader_id_pb2_grpc.LeaderIdSharingStub(channel)
             res = stub.NotifyLeader(share_leader_id_pb2.NotifyLeaderRequest())
             return res
@@ -145,7 +145,7 @@ class Node:
     def exit_game(self, message):
         for node_ip, node_id in zip(self.ring_ips[:-1], self.ring_ids[:-1]):
             try:
-                with grpc.insecure_channel(self.get_node_ip(node_ip, node_id)) as channel:
+                with grpc.insecure_channel(self.get_node_ip(node_id)) as channel:
                     stub = player_pb2_grpc.PlayerStub(channel)
                     stub.ExitGame(player_pb2.SendMessageRequest(message=message))
             except grpc.RpcError:
